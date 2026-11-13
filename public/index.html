@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 1. Include the Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            /* Telegram passes theme colors via CSS variables automatically */
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            font-family: sans-serif;
+            text-align: center;
+            padding-top: 50px;
+        }
+        button {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+  <h2>Defence Line Manager</h2>
+  <button onclick="openDialog()">Create new line</button>
+  <h3 id="response"></h3>
+
+  <dialog id="lineDialog">
+    <h3>Create Line</h3>
+    <input
+      type="text"
+      id="courseName"
+      placeholder="Course name"
+      required
+    > <br>
+    <input
+      type="text"
+      id="lineName"
+      placeholder="Line name"
+    > <br>
+    Date:
+    <input
+      type="date"
+      id="defenceDate"
+      required
+    > <br><br>
+
+    <button onclick="createLine()">Create</button>
+    <button onclick="lineDialog.close()">Cancel</button>
+  </dialog>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    const userId = tg.initDataUnsafe?.user?.id;
+    const username = tg.initDataUnsafe?.user?.username;
+    const firstName = tg.initDataUnsafe?.user?.first_name;
+    const lastName = tg.initDataUnsafe?.user?.last_name;
+
+    responseH3 = document.getElementById("response");
+
+    // not really needed
+    if (userId)
+    {
+      fetch('/api/app_opened', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+        })
+      }).then(res => {
+        if (!res.ok) throw new Error(`Server status: ${res.status}`);
+        return res.json();
+      }).then(data => {
+        //responseH3.innerText = data.message;
+      }).catch(error => {
+        console.error("Failed to send: ", error);
+      });
+    } else
+    {
+      console.log("Not running inside Telegram.");
+    }
+
+    const lineDialog = document.getElementById("lineDialog");
+
+    function openDialog() {
+      lineDialog.showModal();
+    }
+
+    function createLine() {
+      const courseName = document.getElementById("courseName").value;
+      const lineName = document.getElementById("lineName").value;
+      const defenceDate = document.getElementById("defenceDate").value;
+
+      fetch('/api/new_line', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          initData: tg.initData,
+          course_name: courseName,
+          line_name: lineName,
+          defence_date: defenceDate
+        })
+      }).then(res => {
+        if (!res.ok) throw new Error(`Server status: ${res.status}`);
+        return res.json();
+      }).then(data => {
+        Telegram.WebApp.showAlert(data.message);
+      }).catch(error => {
+        console.error("Failed to send: ", error);
+        Telegram.WebApp.showAlert("Error. the line wasn't created!");
+      });
+
+      lineDialog.close();
+    }
+
+    fetch('/api/get_lines', {
+      method: 'GET'
+    }).then(res => {
+      if (!res.ok) throw new Error(`Server status: ${res.status}`);
+      return res.json();
+    }).then(data => {
+      responseH3.innerText = data.lines[0].creator_username;
+    }).catch(error => {
+      console.error("Failed to retireve data: ", error);
+      Telegram.WebApp.showAlert("Failed to get line data!");
+    });
+  </script>
+</body>
+</html>
